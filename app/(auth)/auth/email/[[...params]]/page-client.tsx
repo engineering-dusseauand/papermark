@@ -15,27 +15,31 @@ export default function EmailVerificationClient() {
   const router = useRouter();
   const codeInputRef = useRef<HTMLInputElement>(null);
   const [email, setEmail] = useState("");
-  const [emailLocked, setEmailLocked] = useState(false);
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isExpired, setIsExpired] = useState(false);
 
   useEffect(() => {
+    let pendingEmail: string | null = null;
     try {
-      const pendingEmail = sessionStorage.getItem("pendingVerificationEmail");
-      if (pendingEmail) {
-        setEmail(pendingEmail);
-        setEmailLocked(true);
-        sessionStorage.removeItem("pendingVerificationEmail");
-        setTimeout(() => {
-          codeInputRef.current?.focus();
-        }, 100);
-      }
+      pendingEmail = sessionStorage.getItem("pendingVerificationEmail");
     } catch {
       // sessionStorage not available
     }
-  }, []);
+
+    // The email is collected on the login step. If it's missing (e.g. direct
+    // navigation), send the user back to re-enter it instead of asking here.
+    if (!pendingEmail) {
+      router.replace("/login");
+      return;
+    }
+
+    setEmail(pendingEmail);
+    setTimeout(() => {
+      codeInputRef.current?.focus();
+    }, 100);
+  }, [router]);
 
   // Code verification
   const handleSubmit = async (e: React.FormEvent) => {
@@ -77,7 +81,13 @@ export default function EmailVerificationClient() {
         return;
       }
 
-      // Redirect to the callback URL
+      // Successful verification - clear the stored email and redirect.
+      try {
+        sessionStorage.removeItem("pendingVerificationEmail");
+      } catch {
+        // ignore
+      }
+
       if (data.callbackUrl) {
         router.push(data.callbackUrl);
       } else {
@@ -131,35 +141,12 @@ export default function EmailVerificationClient() {
             Check your email
           </span>
           <h3 className="text-balance text-sm text-gray-800">
-            {emailLocked ? (
-              <>
-                We sent a login code to{" "}
-                <span className="font-medium">{email}</span>
-              </>
-            ) : (
-              "Enter your email and the code we sent you"
-            )}
+            We sent a login code to{" "}
+            <span className="font-medium">{email}</span>
           </h3>
         </div>
 
         <form className="flex flex-col gap-4 pt-4" onSubmit={handleSubmit}>
-          {!emailLocked && (
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                placeholder="name@example.com"
-                type="email"
-                autoCapitalize="none"
-                autoComplete="email"
-                autoCorrect="off"
-                disabled={isLoading}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="flex h-10 w-full rounded-[4px] border-0 bg-background bg-white px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-200 transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white"
-              />
-            </div>
-          )}
           <div className="space-y-2">
             <Label htmlFor="code">Verification Code</Label>
             <Input
