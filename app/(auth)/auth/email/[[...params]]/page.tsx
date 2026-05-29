@@ -3,27 +3,19 @@ import { Metadata } from "next";
 import EmailVerificationClient from "./page-client";
 
 const data = {
-  description: "Verify your login to Papermark",
-  title: "Verify Login | Papermark",
+  description: "Verify your login to File Share By Starter Stack AI",
+  title: "Verify Login | File Share By Starter Stack AI",
   url: "/auth/email",
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.papermark.com"),
   title: data.title,
   description: data.description,
   openGraph: {
     title: data.title,
     description: data.description,
     url: data.url,
-    siteName: "Papermark",
-    images: [
-      {
-        url: "/_static/meta-image.png",
-        width: 800,
-        height: 600,
-      },
-    ],
+    siteName: "File Share By Starter Stack AI",
     locale: "en_US",
     type: "website",
   },
@@ -31,8 +23,6 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: data.title,
     description: data.description,
-    creator: "@papermarkio",
-    images: ["/_static/meta-image.png"],
   },
 };
 
