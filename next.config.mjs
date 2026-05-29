@@ -136,22 +136,28 @@ const nextConfig = {
   async redirects() {
     const redirects = [
       {
+        source: "/settings",
+        destination: "/settings/general",
+        permanent: false,
+      },
+    ];
+    // Only redirect "/" → "/dashboard" when scoped to the app host. Without a
+    // host value the `has` rule is invalid, so skip it when the env var is
+    // unset (e.g. local dev without subdomain config).
+    const appHost = process.env.NEXT_PUBLIC_APP_BASE_HOST;
+    if (appHost) {
+      redirects.unshift({
         source: "/",
         destination: "/dashboard",
         permanent: false,
         has: [
           {
             type: "host",
-            value: process.env.NEXT_PUBLIC_APP_BASE_HOST,
+            value: appHost,
           },
         ],
-      },
-      {
-        source: "/settings",
-        destination: "/settings/general",
-        permanent: false,
-      },
-    ];
+      });
+    }
     // mcp.papermark.com/ → docs. 302 (not 301) so we can repoint later
     // when docs move. The /mcp endpoint and /.well-known/* + /oauth/*
     // paths are rewritten above and take precedence, so this only
@@ -172,6 +178,7 @@ const nextConfig = {
   },
   async headers() {
     const isDev = process.env.NODE_ENV === "development";
+    const webhookHost = process.env.NEXT_PUBLIC_WEBHOOK_BASE_HOST;
 
     return [
       {
@@ -259,21 +266,27 @@ const nextConfig = {
           },
         ],
       },
-      {
-        source: "/services/:path*",
-        has: [
-          {
-            type: "host",
-            value: process.env.NEXT_PUBLIC_WEBHOOK_BASE_HOST,
-          },
-        ],
-        headers: [
-          {
-            key: "X-Robots-Tag",
-            value: "noindex",
-          },
-        ],
-      },
+      // Only scope this header to the webhook host when it's configured;
+      // an undefined host value makes the `has` rule invalid.
+      ...(webhookHost
+        ? [
+            {
+              source: "/services/:path*",
+              has: [
+                {
+                  type: "host",
+                  value: webhookHost,
+                },
+              ],
+              headers: [
+                {
+                  key: "X-Robots-Tag",
+                  value: "noindex",
+                },
+              ],
+            },
+          ]
+        : []),
       {
         source: "/api/webhooks/services/:path*",
         headers: [
