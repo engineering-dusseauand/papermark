@@ -84,14 +84,23 @@ export const authOptions: NextAuthOptions = {
         }
       },
     }),
-    PasskeyProvider({
-      tenant: hanko,
-      async authorize({ userId }) {
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        if (!user) return null;
-        return user;
-      },
-    }),
+    // Only register passkey auth when Hanko is configured. The provider reads
+    // the tenant at construction time, so including it without env vars would
+    // crash all of NextAuth (e.g. /api/auth/session).
+    ...(process.env.HANKO_API_KEY && process.env.NEXT_PUBLIC_HANKO_TENANT_ID
+      ? [
+          PasskeyProvider({
+            tenant: hanko,
+            async authorize({ userId }) {
+              const user = await prisma.user.findUnique({
+                where: { id: userId },
+              });
+              if (!user) return null;
+              return user;
+            },
+          }),
+        ]
+      : []),
     {
       id: "saml",
       name: "BoxyHQ SAML",
