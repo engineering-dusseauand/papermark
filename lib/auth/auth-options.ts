@@ -17,6 +17,21 @@ import { CustomUser } from "@/lib/types";
 
 const VERCEL_DEPLOYMENT = !!process.env.VERCEL_URL;
 
+// Single-user / allowlisted access. Signups are disabled, so only these
+// emails may authenticate via ANY provider (email, Google, LinkedIn, SAML).
+// Configure with ALLOWED_LOGIN_EMAILS (comma-separated) to add teammates.
+const ALLOWED_LOGIN_EMAILS = (
+  process.env.ALLOWED_LOGIN_EMAILS || "mark@starterstack.ai"
+)
+  .split(",")
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
+
+function isEmailAllowed(email?: string | null): boolean {
+  if (!email) return false;
+  return ALLOWED_LOGIN_EMAILS.includes(email.trim().toLowerCase());
+}
+
 function getMainDomainUrl(): string {
   if (process.env.NODE_ENV === "development") {
     return process.env.NEXTAUTH_URL || "http://localhost:3000";
@@ -56,6 +71,15 @@ export const authOptions: NextAuthOptions = {
     }),
     EmailProvider({
       async sendVerificationRequest({ identifier, url }) {
+        // Don't send magic links to non-allowlisted addresses.
+        if (!isEmailAllowed(identifier)) {
+          console.log(
+            "[Auth] Skipped verification email for non-allowlisted address:",
+            identifier,
+          );
+          return;
+        }
+
         const hasValidNextAuthUrl = !!process.env.NEXTAUTH_URL;
         let finalUrl = url;
 
@@ -202,6 +226,17 @@ export const authOptions: NextAuthOptions = {
     },
   },
   callbacks: {
+    signIn: async ({ user, profile }) => {
+      // Enforce the allowlist for every provider. `profile.email` covers
+      // OAuth/SAML flows where `user.email` may not be populated yet.
+      const email =
+        user?.email ?? (profile as { email?: string } | null)?.email ?? null;
+      if (!isEmailAllowed(email)) {
+        console.log("[Auth] Rejected login for non-allowlisted email:", email);
+        return false;
+      }
+      return true;
+    },
     jwt: async (params) => {
       const { token, user, trigger, account } = params;
       if (!token.email) {
