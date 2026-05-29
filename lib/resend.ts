@@ -45,17 +45,13 @@ export const sendEmail = async ({
   const html = await render(react);
   const plainText = toPlainText(html);
 
-  const fromAddress =
-    from ??
-    (marketing
-      ? "Marc from Papermark <marc@updates.papermark.com>"
-      : system
-        ? "Papermark <system@papermark.com>"
-        : verify
-          ? "Papermark <system@verify.papermark.com>"
-          : !!scheduledAt
-            ? "Marc Seitz <marc@papermark.com>"
-            : "Marc from Papermark <marc@papermark.com>");
+  // Prefer an explicit per-call `from`, then a configured EMAIL_FROM env var.
+  // Fall back to Resend's shared onboarding sender, which works without a
+  // verified custom domain (handy for single-user / self-hosted setups).
+  const defaultFrom =
+    process.env.EMAIL_FROM || "File Share By Starter Stack AI <onboarding@resend.dev>";
+
+  const fromAddress = from ?? defaultFrom;
 
   try {
     const { data, error } = await resend.emails.send({

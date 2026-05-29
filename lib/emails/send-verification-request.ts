@@ -49,6 +49,16 @@ export const sendVerificationRequestEmail = async (params: {
     { ex: TOKEN_EXPIRATION_SECONDS },
   );
 
+  // Safety net: if email delivery isn't configured (no RESEND_API_KEY),
+  // surface the login code in the server logs so the single allowlisted user
+  // is never locked out.
+  if (!process.env.RESEND_API_KEY) {
+    console.log(
+      `[Login Code] No RESEND_API_KEY set. Login code for ${email}: ${code}`,
+    );
+    return;
+  }
+
   const emailTemplate = VerificationCodeEmail({
     email,
     code,
@@ -60,9 +70,12 @@ export const sendVerificationRequestEmail = async (params: {
     sendEmail({
       to: email as string,
       system: true,
-      subject: "Login for Papermark",
+      subject: "Your login code for File Share By Starter Stack AI",
       react: emailTemplate,
-      test: process.env.NODE_ENV === "development",
+      // Always send to the real recipient. Previously this diverted to
+      // Resend's test inbox (delivered@resend.dev) in development, so the
+      // login code never reached the user.
+      test: false,
     }).catch((e) => {
       console.error("Failed to send verification email:", e);
     }),
