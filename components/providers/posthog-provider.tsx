@@ -4,9 +4,59 @@ import posthog from "posthog-js";
 // import { useRouter } from "next/router";
 import { PostHogProvider } from "posthog-js/react";
 
-import { registerLandingVariant } from "@/lib/landing-ab-client";
 import { getPostHogConfig } from "@/lib/posthog";
 import { CustomUser } from "@/lib/types";
+
+/**
+ * Name of the PostHog feature flag used to bucket visitors into a
+ * landing-page A/B test variant.
+ */
+const LANDING_AB_FLAG = "landing-page-variant";
+
+/**
+ * Super property attached to every captured event so the active landing-page
+ * variant can be segmented in analytics.
+ */
+const LANDING_AB_PROPERTY = "landing_variant";
+
+/**
+ * Registers the visitor's landing-page A/B test variant as a PostHog super
+ * property so it is attached to all subsequent events. Intentionally
+ * defensive: no-ops when PostHog is unavailable, flags have not loaded, or
+ * this runs outside the browser, so analytics can never break the app.
+ */
+function registerLandingVariant(client?: typeof posthog | null): void {
+  if (typeof window === "undefined" || !client) {
+    return;
+  }
+
+  const apply = () => {
+    try {
+      const variant = client.getFeatureFlag(LANDING_AB_FLAG);
+
+      // `getFeatureFlag` returns `undefined` while flags are loading and
+      // `false` when the flag is disabled. Only register a real variant value.
+      if (variant === undefined || variant === false) {
+        return;
+      }
+
+      client.register({ [LANDING_AB_PROPERTY]: variant });
+    } catch {
+      // Never let analytics bucketing break the app.
+    }
+  };
+
+  try {
+    // `onFeatureFlags` fires immediately if flags are already loaded.
+    if (typeof client.onFeatureFlags === "function") {
+      client.onFeatureFlags(apply);
+    } else {
+      apply();
+    }
+  } catch {
+    // Ignore – analytics is best-effort.
+  }
+}
 
 export const PostHogCustomProvider = ({
   children,
