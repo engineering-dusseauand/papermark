@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import { useState } from "react";
@@ -41,27 +40,21 @@ export default function Login() {
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-white px-4">
-      <div className="w-full max-w-md">
-        <div className="items-left flex flex-col space-y-3 py-6">
-          <Link href="https://www.papermark.com" target="_blank">
-            <img
-              src="/_static/papermark-logo.svg"
-              alt="Papermark Logo"
-              className="mb-10 h-7 w-auto self-start"
-            />
-          </Link>
-          <Link href="/">
-            <span className="text-balance text-3xl font-semibold text-gray-900">
-              Welcome to Papermark
-            </span>
-          </Link>
-          <h3 className="text-balance text-sm text-gray-800">
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col gap-2 pb-8">
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            File Share
+          </span>
+          <h1 className="text-balance text-2xl font-semibold text-gray-900">
+            File Share By Starter Stack AI
+          </h1>
+          <p className="text-balance text-sm leading-relaxed text-gray-600">
             Sign in with your email to continue.
-          </h3>
+          </p>
         </div>
 
         {isSSORequired && (
-          <div className="mb-2 flex items-start gap-3 rounded-[4px] border border-orange-200 bg-orange-50 px-4 py-3">
+          <div className="mb-4 flex items-start gap-3 rounded-md border border-orange-200 bg-orange-50 px-4 py-3">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600" />
             <div>
               <p className="text-sm font-medium text-orange-900">
@@ -76,7 +69,7 @@ export default function Login() {
         )}
 
         <form
-          className="flex flex-col gap-4 pt-4"
+          className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
             if (!emailValidation.success) {
@@ -91,14 +84,14 @@ export default function Login() {
               ...(next && next.length > 0 ? { callbackUrl: next } : {}),
             }).then((res) => {
               if (res?.ok && !res?.error) {
-                // Store email in sessionStorage for the verification page
+                // Store email so the verification page can use it directly.
                 try {
                   sessionStorage.setItem(
                     "pendingVerificationEmail",
                     emailValidation.data,
                   );
                 } catch {
-                  // sessionStorage not available, verification page will show email input
+                  // sessionStorage unavailable; verification page will redirect back.
                 }
                 router.push("/auth/email");
               } else {
@@ -109,60 +102,37 @@ export default function Login() {
             });
           }}
         >
-          <Label className="sr-only" htmlFor="email">
-            Email
-          </Label>
-          <Input
-            id="email"
-            placeholder="name@example.com"
-            type="email"
-            autoCapitalize="none"
-            autoComplete="email"
-            autoCorrect="off"
-            disabled={isSubmitting}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={cn(
-              "flex h-10 w-full rounded-[4px] border-0 bg-background bg-white px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-200 transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white",
-              email.length > 0 && !emailValidation.success
-                ? "ring-red-500"
-                : "ring-gray-200",
-            )}
-          />
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="email" className="text-sm text-gray-900">
+              Email
+            </Label>
+            <Input
+              id="email"
+              placeholder="name@example.com"
+              type="email"
+              autoCapitalize="none"
+              autoComplete="email"
+              autoCorrect="off"
+              disabled={isSubmitting}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className={cn(
+                "flex h-10 w-full rounded-md border-0 bg-white px-3 py-2 text-sm text-gray-900 ring-1 ring-gray-200 transition-colors placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 disabled:cursor-not-allowed disabled:opacity-50",
+                email.length > 0 && !emailValidation.success
+                  ? "ring-red-500 focus-visible:ring-red-500"
+                  : "ring-gray-200",
+              )}
+            />
+          </div>
           <Button
             type="submit"
             loading={isSubmitting}
             disabled={!emailValidation.success || isSubmitting}
-            className={cn(
-              "focus:shadow-outline w-full transform rounded-[4px] px-4 py-2 text-white transition-colors duration-300 ease-in-out focus:outline-none disabled:opacity-100",
-              "bg-black hover:bg-gray-900",
-            )}
+            className="focus:shadow-outline w-full transform rounded-md bg-black px-4 py-2 text-white transition-colors duration-300 ease-in-out hover:bg-gray-900 focus:outline-none disabled:opacity-50"
           >
             {emailButtonText}
           </Button>
         </form>
-
-        <p className="mt-10 w-full text-xs text-muted-foreground">
-          By continuing, you agree to Papermark&apos;s{" "}
-          <a
-            href="https://www.papermark.com/terms"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            Terms of Service
-          </a>{" "}
-          and{" "}
-          <a
-            href="https://www.papermark.com/privacy"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline"
-          >
-            Privacy Policy
-          </a>
-          .
-        </p>
       </div>
     </div>
   );
