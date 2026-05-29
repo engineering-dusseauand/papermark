@@ -1,6 +1,6 @@
 import { Webhook } from "@prisma/client";
 
-import { qstash } from "@/lib/cron";
+import { isQStashConfigured, qstash } from "@/lib/cron";
 
 import { createWebhookSignature } from "./signature";
 import { prepareWebhookPayload } from "./transform";
@@ -17,6 +17,12 @@ export const sendWebhooks = async ({
   data: EventDataProps;
 }) => {
   if (webhooks.length === 0) {
+    return;
+  }
+
+  // Webhook delivery is handled via QStash; skip when it isn't configured.
+  if (!isQStashConfigured) {
+    console.log("[Webhooks] QStash not configured, skipping webhook delivery");
     return;
   }
 

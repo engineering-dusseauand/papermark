@@ -17,3 +17,8 @@ export const receiver = new Receiver({
 export const qstash = new Client({
   token: process.env.QSTASH_TOKEN || "",
 });
+
+// Whether QStash is configured. Background jobs (welcome email, webhook
+// delivery) are optional, so callers should skip publishing when this is
+// false to avoid "client token is not set" errors.
+export const isQStashConfigured = !!process.env.QSTASH_TOKEN;

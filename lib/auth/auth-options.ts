@@ -8,7 +8,7 @@ import GoogleProvider from "next-auth/providers/google";
 import LinkedInProvider from "next-auth/providers/linkedin";
 
 import { identifyUser, trackAnalytics } from "@/lib/analytics";
-import { qstash } from "@/lib/cron";
+import { isQStashConfigured, qstash } from "@/lib/cron";
 import { sendVerificationRequestEmail } from "@/lib/emails/send-verification-request";
 import hanko from "@/lib/hanko";
 import { jackson } from "@/lib/jackson";
@@ -290,13 +290,16 @@ export const authOptions: NextAuthOptions = {
         userId: message.user.id,
       });
 
-      await qstash.publishJSON({
-        url: `${process.env.NEXT_PUBLIC_BASE_URL ?? getMainDomainUrl()}/api/cron/welcome-user`,
-        body: {
-          userId: message.user.id,
-        },
-        delay: 15 * 60,
-      });
+      // Skip the delayed welcome email when QStash isn't configured.
+      if (isQStashConfigured) {
+        await qstash.publishJSON({
+          url: `${process.env.NEXT_PUBLIC_BASE_URL ?? getMainDomainUrl()}/api/cron/welcome-user`,
+          body: {
+            userId: message.user.id,
+          },
+          delay: 15 * 60,
+        });
+      }
     },
   },
 };
