@@ -1,8 +1,8 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 
 import { AlertCircle } from "lucide-react";
 
@@ -17,9 +17,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function Login() {
-  const { next } = useParams as { next?: string };
+  // useSearchParams must be wrapped in a Suspense boundary, otherwise the whole
+  // route bails out to client-side rendering (missingSuspenseWithCSRBailout),
+  // which can surface as a root-level hydration mismatch.
+  return (
+    <Suspense fallback={<LoginFallback />}>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginFallback() {
+  return (
+    <div className="flex min-h-screen w-full items-center justify-center bg-white px-4">
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col gap-2 pb-8">
+          <span className="text-xs font-medium uppercase tracking-wide text-gray-500">
+            File Share
+          </span>
+          <h1 className="text-balance text-2xl font-semibold text-gray-900">
+            File Share By Starter Stack AI
+          </h1>
+          <p className="text-balance text-sm leading-relaxed text-gray-600">
+            Sign in with your email to continue.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const next = searchParams?.get("next") ?? undefined;
   const authError = searchParams?.get("error");
   const isSSORequired = authError === "require-saml-sso";
 
