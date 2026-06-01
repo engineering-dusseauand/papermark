@@ -1,4 +1,3 @@
-import { waitUntil } from "@vercel/functions";
 import { customAlphabet } from "nanoid";
 
 import { redis } from "@/lib/redis";
@@ -64,10 +63,16 @@ export const sendVerificationRequestEmail = async (params: {
     code,
   });
 
-  // Use waitUntil to send email in background after response is sent
-  // This keeps the serverless function alive until the email is sent
-  waitUntil(
-    sendEmail({
+  // Send the email and AWAIT it. NextAuth awaits sendVerificationRequest, so
+  // awaiting here guarantees the email is actually dispatched before the user
+  // is redirected to the verification screen.
+  //
+  // Previously this used `waitUntil(...)` (fire-and-forget). Outside the Vercel
+  // serverless runtime (e.g. local dev / self-hosted) that background promise
+  // is not reliably flushed, so the redirect succeeded but the email never
+  // sent — exactly the "I didn't get the email" symptom.
+  try {
+    const data = await sendEmail({
       to: email as string,
       system: true,
       subject: "Your login code for File Share By Starter Stack AI",
@@ -76,10 +81,18 @@ export const sendVerificationRequestEmail = async (params: {
       // Resend's test inbox (delivered@resend.dev) in development, so the
       // login code never reached the user.
       test: false,
-    }).catch((e) => {
-      console.error("Failed to send verification email:", e);
-    }),
-  );
+    });
+    console.log(
+      `[Login Email] Verification code sent to ${email} (resend id: ${
+        (data as { id?: string } | null | undefined)?.id ?? "unknown"
+      })`,
+    );
+  } catch (e) {
+    console.error("[Login Email] Failed to send verification email:", e);
+    // Re-throw so NextAuth surfaces the failure instead of silently
+    // redirecting the user to a screen where no code will ever arrive.
+    throw e;
+  }
 };
 
 /**
