@@ -56,6 +56,7 @@ function LoginForm() {
 
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [email, setEmail] = useState<string>("");
+  const [accessError, setAccessError] = useState<string | null>(null);
   const [emailButtonText, setEmailButtonText] = useState<string>(
     "Continue with Email",
   );
@@ -84,6 +85,13 @@ function LoginForm() {
           </p>
         </div>
 
+        {accessError && (
+          <div className="mb-4 flex items-start gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+            <p className="text-sm font-medium text-red-900">{accessError}</p>
+          </div>
+        )}
+
         {isSSORequired && (
           <div className="mb-4 flex items-start gap-3 rounded-md border border-orange-200 bg-orange-50 px-4 py-3">
             <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-orange-600" />
@@ -101,36 +109,58 @@ function LoginForm() {
 
         <form
           className="flex flex-col gap-4"
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
+            setAccessError(null);
             if (!emailValidation.success) {
               toast.error(emailValidation.error.errors[0].message);
               return;
             }
 
             setIsSubmitting(true);
-            signIn("email", {
+
+            // Pre-check the allowlist so non-permitted emails get a clear
+            // message instead of being sent to a code screen with no code.
+            try {
+              const res = await fetch("/api/auth/email-allowed", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: emailValidation.data }),
+              });
+              const { allowed } = (await res.json()) as { allowed?: boolean };
+              if (!allowed) {
+                setAccessError(
+                  "This email isn't permitted to sign in. Contact your administrator for access.",
+                );
+                setIsSubmitting(false);
+                return;
+              }
+            } catch {
+              // If the check fails, fall through and let sign-in attempt run.
+            }
+
+            const signInRes = await signIn("email", {
               email: emailValidation.data,
               redirect: false,
               ...(next && next.length > 0 ? { callbackUrl: next } : {}),
-            }).then((res) => {
-              if (res?.ok && !res?.error) {
-                // Store email so the verification page can use it directly.
-                try {
-                  sessionStorage.setItem(
-                    "pendingVerificationEmail",
-                    emailValidation.data,
-                  );
-                } catch {
-                  // sessionStorage unavailable; verification page will redirect back.
-                }
-                router.push("/auth/email");
-              } else {
-                setEmailButtonText("Error sending email - try again?");
-                toast.error("Error sending email - try again?");
-                setIsSubmitting(false);
-              }
             });
+
+            if (signInRes?.ok && !signInRes?.error) {
+              // Store email so the verification page can use it directly.
+              try {
+                sessionStorage.setItem(
+                  "pendingVerificationEmail",
+                  emailValidation.data,
+                );
+              } catch {
+                // sessionStorage unavailable; verification page will redirect back.
+              }
+              router.push("/auth/email");
+            } else {
+              setEmailButtonText("Error sending email - try again?");
+              toast.error("Error sending email - try again?");
+              setIsSubmitting(false);
+            }
           }}
         >
           <div className="flex flex-col gap-2">

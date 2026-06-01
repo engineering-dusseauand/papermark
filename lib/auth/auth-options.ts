@@ -8,6 +8,7 @@ import GoogleProvider from "next-auth/providers/google";
 import LinkedInProvider from "next-auth/providers/linkedin";
 
 import { identifyUser, trackAnalytics } from "@/lib/analytics";
+import { isEmailAllowed } from "@/lib/auth/allowed-emails";
 import { isQStashConfigured, qstash } from "@/lib/cron";
 import { sendVerificationRequestEmail } from "@/lib/emails/send-verification-request";
 import hanko from "@/lib/hanko";
@@ -16,21 +17,6 @@ import prisma from "@/lib/prisma";
 import { CustomUser } from "@/lib/types";
 
 const VERCEL_DEPLOYMENT = !!process.env.VERCEL_URL;
-
-// Single-user / allowlisted access. Signups are disabled, so only these
-// emails may authenticate via ANY provider (email, Google, LinkedIn, SAML).
-// Configure with ALLOWED_LOGIN_EMAILS (comma-separated) to add teammates.
-const ALLOWED_LOGIN_EMAILS = (
-  process.env.ALLOWED_LOGIN_EMAILS || "mark@starterstack.ai"
-)
-  .split(",")
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
-
-function isEmailAllowed(email?: string | null): boolean {
-  if (!email) return false;
-  return ALLOWED_LOGIN_EMAILS.includes(email.trim().toLowerCase());
-}
 
 function getMainDomainUrl(): string {
   if (process.env.NODE_ENV === "development") {
@@ -71,13 +57,16 @@ export const authOptions: NextAuthOptions = {
     }),
     EmailProvider({
       async sendVerificationRequest({ identifier, url }) {
-        // Don't send magic links to non-allowlisted addresses.
+        // Don't send codes to non-allowlisted addresses. Throwing here makes
+        // NextAuth redirect to the error page (/login) so the user sees a
+        // clear message instead of being sent to a code screen where no code
+        // will ever arrive.
         if (!isEmailAllowed(identifier)) {
           console.log(
-            "[Auth] Skipped verification email for non-allowlisted address:",
+            "[Auth] Blocked verification email for non-allowlisted address:",
             identifier,
           );
-          return;
+          throw new Error("AccessDenied");
         }
 
         const hasValidNextAuthUrl = !!process.env.NEXTAUTH_URL;

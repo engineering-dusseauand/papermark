@@ -48,6 +48,13 @@ export const sendVerificationRequestEmail = async (params: {
     { ex: TOKEN_EXPIRATION_SECONDS },
   );
 
+  // Dev escape hatch: outside production, always print the code to the server
+  // logs. Email delivery to a custom domain can land in spam or be filtered,
+  // so this guarantees the single allowlisted user can always retrieve a code.
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`[Login Code] Code for ${email}: ${code}`);
+  }
+
   // Safety net: if email delivery isn't configured (no RESEND_API_KEY),
   // surface the login code in the server logs so the single allowlisted user
   // is never locked out.
