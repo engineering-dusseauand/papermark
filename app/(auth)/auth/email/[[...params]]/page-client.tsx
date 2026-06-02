@@ -105,7 +105,42 @@ export default function EmailVerificationClient() {
       }
 
       if (data.callbackUrl) {
-        router.push(data.callbackUrl);
+        // The server-generated callbackUrl may point at http://localhost:3000
+        // (NextAuth's NEXTAUTH_URL fallback). Navigating the public preview
+        // page to localhost triggers a browser Private Network Access block.
+        // Rewrite it onto the current origin so the sign-in callback stays
+        // same-origin and completes correctly.
+        let target = data.callbackUrl as string;
+        try {
+          const parsed = new URL(target, window.location.origin);
+          const current = new URL(window.location.origin);
+          parsed.protocol = current.protocol;
+          parsed.host = current.host;
+          // Also rewrite the inner post-login redirect target if it points
+          // at localhost, so the final redirect doesn't get blocked either.
+          const inner = parsed.searchParams.get("callbackUrl");
+          if (inner) {
+            try {
+              const innerUrl = new URL(inner, window.location.origin);
+              if (
+                innerUrl.hostname === "localhost" ||
+                innerUrl.hostname === "127.0.0.1"
+              ) {
+                innerUrl.protocol = current.protocol;
+                innerUrl.host = current.host;
+                parsed.searchParams.set("callbackUrl", innerUrl.toString());
+              }
+            } catch {
+              // ignore malformed inner callbackUrl
+            }
+          }
+          target = parsed.toString();
+        } catch {
+          // If parsing fails, fall back to the raw value.
+        }
+        // Use a full navigation so the GET hits the NextAuth email callback
+        // route directly (it sets the session cookie then redirects).
+        window.location.href = target;
       } else {
         // No callback URL in response - stop loading and show error
         setIsLoading(false);
