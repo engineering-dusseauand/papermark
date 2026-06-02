@@ -19,6 +19,7 @@ export default function EmailVerificationClient() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isExpired, setIsExpired] = useState(false);
+  const [devCode, setDevCode] = useState<string | null>(null);
 
   useEffect(() => {
     let pendingEmail: string | null = null;
@@ -39,6 +40,21 @@ export default function EmailVerificationClient() {
     setTimeout(() => {
       codeInputRef.current?.focus();
     }, 100);
+
+    // Dev-only: fetch the active code so the user is never blocked by email
+    // deliverability. The endpoint returns { code: null } / 404 in production.
+    fetch("/api/auth/dev-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: pendingEmail }),
+    })
+      .then((res) => (res.ok ? res.json() : { code: null }))
+      .then((data: { code?: string | null }) => {
+        if (data?.code) setDevCode(data.code);
+      })
+      .catch(() => {
+        // ignore - this is only a convenience helper
+      });
   }, [router]);
 
   // Code verification
@@ -145,6 +161,25 @@ export default function EmailVerificationClient() {
             <span className="font-medium">{email}</span>
           </h3>
         </div>
+
+        {devCode && (
+          <div className="mb-2 rounded-md border border-blue-200 bg-blue-50 px-4 py-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-blue-700">
+              Preview mode
+            </p>
+            <p className="mt-1 text-sm text-blue-900">
+              Email delivery can be slow or filtered. Your code is{" "}
+              <button
+                type="button"
+                onClick={() => setCode(devCode)}
+                className="font-mono font-semibold tracking-widest text-blue-900 underline underline-offset-2"
+              >
+                {devCode}
+              </button>{" "}
+              — click to fill.
+            </p>
+          </div>
+        )}
 
         <form className="flex flex-col gap-4 pt-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
