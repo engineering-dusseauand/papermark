@@ -49,6 +49,26 @@ function getCookieDomain(): string | undefined {
 
 const COOKIE_DOMAIN = getCookieDomain();
 
+// Cookie SameSite/Secure policy.
+//
+// In real production (a Vercel deployment served top-level from papermark.com)
+// we keep the stricter `SameSite=Lax` cookie. But the v0 preview renders the
+// app inside a CROSS-ORIGIN IFRAME. In that context a `SameSite=Lax` cookie is
+// treated as cross-site and the browser refuses to store/send it — so the
+// session cookie set after code verification never sticks and the user is
+// bounced back to /login instead of reaching the dashboard.
+//
+// Outside a real production deployment we therefore use `SameSite=None; Secure`
+// so the session cookie is accepted inside the embedded preview iframe.
+// `SameSite=None` requires `Secure`, which is satisfied because the preview is
+// served over https (and localhost is treated as a secure context).
+const SESSION_COOKIE_SAME_SITE: "lax" | "none" = VERCEL_DEPLOYMENT
+  ? "lax"
+  : "none";
+const SESSION_COOKIE_SECURE = VERCEL_DEPLOYMENT
+  ? true
+  : SESSION_COOKIE_SAME_SITE === "none";
+
 export const authOptions: NextAuthOptions = {
   pages: {
     error: "/login",
@@ -231,10 +251,10 @@ export const authOptions: NextAuthOptions = {
       name: `${VERCEL_DEPLOYMENT ? "__Secure-" : ""}next-auth.session-token`,
       options: {
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: SESSION_COOKIE_SAME_SITE,
         path: "/",
         domain: COOKIE_DOMAIN,
-        secure: VERCEL_DEPLOYMENT,
+        secure: SESSION_COOKIE_SECURE,
       },
     },
   },
