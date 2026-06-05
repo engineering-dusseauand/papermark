@@ -25,6 +25,30 @@ function getMainDomainUrl(): string {
   return process.env.NEXTAUTH_URL || "https://app.papermark.com";
 }
 
+// Determine the cookie Domain attribute. Scoping to `.papermark.com` only
+// works when the app is actually served from a papermark.com host. On previews
+// and other deployments (e.g. *.vercel.app) the host won't match, so the
+// browser SILENTLY DROPS the session cookie and the user can never log in even
+// though the code verifies. In those cases we leave Domain unset so the cookie
+// is stored host-only against whatever origin is serving the app.
+function getCookieDomain(): string | undefined {
+  // Only set a cross-subdomain cookie domain when an explicit NEXTAUTH_URL
+  // (the real production URL) is configured and points at papermark.com.
+  const configuredUrl = process.env.NEXTAUTH_URL;
+  if (!configuredUrl) return undefined;
+  try {
+    const host = new URL(configuredUrl).hostname;
+    if (host === "papermark.com" || host.endsWith(".papermark.com")) {
+      return ".papermark.com";
+    }
+  } catch {
+    // ignore malformed NEXTAUTH_URL
+  }
+  return undefined;
+}
+
+const COOKIE_DOMAIN = getCookieDomain();
+
 export const authOptions: NextAuthOptions = {
   pages: {
     error: "/login",
@@ -209,7 +233,7 @@ export const authOptions: NextAuthOptions = {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        domain: VERCEL_DEPLOYMENT ? ".papermark.com" : undefined,
+        domain: COOKIE_DOMAIN,
         secure: VERCEL_DEPLOYMENT,
       },
     },
